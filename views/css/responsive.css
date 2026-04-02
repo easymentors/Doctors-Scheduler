@@ -1,0 +1,28 @@
+body { font-family: 'Inter', sans-serif; }
+
+.nav-scroll {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.nav-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+
+.nav-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.nav-scroll::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 2px;
+}
+
+@media (max-width: 640px) {
+    .nav-scroll {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}

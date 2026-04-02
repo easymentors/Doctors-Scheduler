@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Hospital Doctors Scheduler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .nav-scroll::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <div class="w-8 h-8 sm:w-10 sm:h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                </div>
+                <span class="text-lg sm:text-xl font-bold text-gray-800">Hospital Doctors' Scheduler</span>
+            </div>
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <span class="text-xs sm:text-base text-gray-600 hidden sm:inline"><%= user.name %></span>
+                <a href="/logout" class="bg-gray-200 px-2 sm:px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-300 transition text-sm">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-3xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <!-- Navigation -->
+        <div class="flex flex-nowrap sm:flex-wrap sm:space-x-2 gap-2 mb-4 sm:mb-8 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0">
+            <a href="/admin/dashboard" class="px-3 sm:px-6 py-2 sm:py-3 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 text-sm sm:text-base whitespace-nowrap">Dashboard</a>
+            <% if (user.role === 'admin') { %>
+            <a href="/admin/doctors" class="px-3 sm:px-6 py-2 sm:py-3 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 text-sm sm:text-base whitespace-nowrap">Doctors</a>
+            <a href="/admin/doctor-report" class="px-3 sm:px-6 py-2 sm:py-3 bg-purple-100 text-purple-700 rounded-lg font-medium hover:bg-purple-200 text-sm sm:text-base whitespace-nowrap">Doctor Report</a>
+            <a href="/admin/patient-report" class="px-3 sm:px-6 py-2 sm:py-3 bg-purple-100 text-purple-700 rounded-lg font-medium hover:bg-purple-200 text-sm sm:text-base whitespace-nowrap">Patient Report</a>
+            <% } %>
+            <a href="/admin/appointments" class="px-3 sm:px-6 py-2 sm:py-3 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 text-sm sm:text-base whitespace-nowrap">Appointments</a>
+            <a href="/admin/settings" class="px-3 sm:px-6 py-2 sm:py-3 bg-teal-600 text-white rounded-lg font-medium text-sm sm:text-base whitespace-nowrap">Settings</a>
+        </div>
+
+        <!-- Settings Form -->
+        <form method="POST" action="/admin/settings" class="space-y-6">
+            <!-- Hospital Info -->
+            <div class="bg-white rounded-xl shadow-sm border p-4 sm:p-6">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-4">Hospital Information</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Hospital Name (English)</label>
+                        <input type="text" name="name_en" value="<%= settings.hospital.name_en %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Hospital Name (Urdu)</label>
+                        <input type="text" name="name_ur" value="<%= settings.hospital.name_ur %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" dir="rtl">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Address (English)</label>
+                        <input type="text" name="address_en" value="<%= settings.hospital.address_en %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Address (Urdu)</label>
+                        <input type="text" name="address_ur" value="<%= settings.hospital.address_ur %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" dir="rtl">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-gray-700 font-medium mb-2">Phone</label>
+                    <input type="text" name="phone" value="<%= settings.hospital.phone %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+            </div>
+
+            <!-- Login Settings -->
+            <div class="bg-white rounded-xl shadow-sm border p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Login Settings</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Admin Username</label>
+                        <input type="text" name="adminUsername" value="<%= settings.admin.username %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Focal Person Username</label>
+                        <input type="text" name="focalUsername" value="<%= settings.admin.focalUsername %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-gray-700 font-medium mb-2">Focal Person Password</label>
+                    <input type="text" name="focalPassword" value="<%= settings.admin.focalPassword %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <p class="text-sm text-gray-500 mt-2">Default admin password is 12345678. Use form below to change it.</p>
+            </div>
+
+            <!-- Email Settings -->
+            <div class="bg-white rounded-xl shadow-sm border p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Email Settings</h2>
+                <div class="flex items-center mb-4">
+                    <input type="checkbox" name="emailEnabled" id="emailEnabled" <%= settings.email.enabled ? 'checked' : '' %> class="rounded text-teal-600">
+                    <label for="emailEnabled" class="ml-2 text-gray-700 font-medium">Enable Email Notifications</label>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">SMTP Host</label>
+                        <input type="text" name="emailHost" value="<%= settings.email.host %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">SMTP Port</label>
+                        <input type="number" name="emailPort" value="<%= settings.email.port %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">SMTP Username</label>
+                        <input type="text" name="emailUser" value="<%= settings.email.user %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">SMTP Password</label>
+                        <input type="password" name="emailPassword" value="<%= settings.email.password %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-gray-700 font-medium mb-2">Send To (Email)</label>
+                    <input type="email" name="emailTo" value="<%= settings.email.to %>" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+            </div>
+
+            <button type="submit" class="w-full bg-teal-600 text-white py-3 rounded-lg font-medium hover:bg-teal-700 transition">Save Settings</button>
+        </form>
+
+        <!-- Change Password -->
+        <div class="bg-white rounded-xl shadow-sm border p-6 mt-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Change Admin Password</h2>
+            <form method="POST" action="/admin/password" class="space-y-4">
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Current Password</label>
+                    <input type="password" name="currentPassword" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">New Password</label>
+                    <input type="password" name="newPassword" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Confirm New Password</label>
+                    <input type="password" name="confirmPassword" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">Change Password</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

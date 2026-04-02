@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor-Wise Report - Hospital Doctors Scheduler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .nav-scroll::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <div class="w-8 h-8 sm:w-10 sm:h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                </div>
+                <span class="text-lg sm:text-xl font-bold text-gray-800">Hospital Doctors' Scheduler</span>
+            </div>
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <span class="text-xs sm:text-base text-gray-600 hidden sm:inline"><%= user.name %></span>
+                <a href="/logout" class="bg-gray-200 px-2 sm:px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-300 transition text-sm">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <!-- Navigation -->
+        <div class="flex flex-nowrap sm:flex-wrap sm:space-x-2 gap-2 mb-4 sm:mb-8 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0">
+            <a href="<%= user.role === 'admin' ? '/admin/dashboard' : '/manager/dashboard' %>" class="px-3 sm:px-6 py-2 sm:py-3 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 text-sm sm:text-base whitespace-nowrap">Dashboard</a>
+            <a href="<%= user.role === 'admin' ? '/admin/appointments' : '/manager/appointments' %>" class="px-3 sm:px-6 py-2 sm:py-3 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 text-sm sm:text-base whitespace-nowrap">Appointments</a>
+            <a href="<%= user.role === 'admin' ? '/admin/book' : '/manager/book' %>" class="px-3 sm:px-6 py-2 sm:py-3 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 text-sm sm:text-base whitespace-nowrap">Book</a>
+            <a href="<%= user.role === 'admin' ? '/admin/doctor-report' : '/manager/doctor-report' %>" class="px-3 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-medium text-sm sm:text-base whitespace-nowrap">Doctor Report</a>
+        </div>
+
+        <!-- Page Title -->
+        <div class="mb-4 sm:mb-6">
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Doctor-Wise Report</h1>
+            <p class="text-gray-500 text-sm">View appointments grouped by doctor</p>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="bg-white rounded-xl shadow-sm border p-4 sm:p-6 mb-6">
+            <form method="GET" action="<%= user.role === 'admin' ? '/admin/doctor-report' : '/manager/doctor-report' %>" class="flex flex-wrap gap-3 sm:gap-4 items-end">
+                <div>
+                    <label class="block text-gray-600 text-sm mb-1">Start Date (dd/mm/yyyy)</label>
+                    <input type="date" name="startDate" value="<%= startDate %>" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div>
+                    <label class="block text-gray-600 text-sm mb-1">End Date (dd/mm/yyyy)</label>
+                    <input type="date" name="endDate" value="<%= endDate %>" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <button type="submit" class="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 transition">Filter</button>
+                <a href="<%= user.role === 'admin' ? '/admin/doctor-report' : '/manager/doctor-report' %>" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">Reset</a>
+            </form>
+        </div>
+
+        <!-- Date Range Display -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p class="text-blue-800 text-center">
+                <strong>Report Period:</strong> 
+                <%= startDate.split('-').reverse().join('/') %> to <%= endDate.split('-').reverse().join('/') %>
+            </p>
+        </div>
+
+        <!-- Doctor Reports -->
+        <% if (doctorReport.length > 0) { %>
+            <% doctorReport.forEach(function(doctor) { %>
+            <div class="bg-white rounded-xl shadow-sm border mb-4">
+                <!-- Doctor Header -->
+                <div class="p-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800"><%= doctor.name_en %></h3>
+                            <p class="text-teal-600 font-medium"><%= doctor.specialization_en %></p>
+                        </div>
+                        <div class="flex space-x-2" role="group">
+                            <button onclick="filterAppointments('<%= doctor.id %>', 'all')" data-filter="all" class="filter-btn px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition" id="btn-<%= doctor.id %>-all">See All (<%= doctor.all.length %>)</button>
+                            <button onclick="filterAppointments('<%= doctor.id %>', 'scheduled')" data-filter="scheduled" class="filter-btn px-4 py-2 rounded-lg bg-blue-100 text-blue-700 font-medium hover:bg-blue-200 transition" id="btn-<%= doctor.id %>-scheduled">Scheduled (<%= doctor.scheduled.length %>)</button>
+                            <button onclick="filterAppointments('<%= doctor.id %>', 'completed')" data-filter="completed" class="filter-btn px-4 py-2 rounded-lg bg-green-100 text-green-700 font-medium hover:bg-green-200 transition" id="btn-<%= doctor.id %>-completed">Completed (<%= doctor.completed.length %>)</button>
+                            <button onclick="filterAppointments('<%= doctor.id %>', 'cancelled')" data-filter="cancelled" class="filter-btn px-4 py-2 rounded-lg bg-red-100 text-red-700 font-medium hover:bg-red-200 transition" id="btn-<%= doctor.id %>-cancelled">Cancelled (<%= doctor.cancelled.length %>)</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Appointments Table -->
+                <div class="px-6 pb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-semibold text-gray-700" id="filterTitle-<%= doctor.id %>">All Appointments (<%= doctor.all.length %>)</h4>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-left text-gray-500 border-b">
+                                    <th class="pb-2">Date</th>
+                                    <th class="pb-2">Time</th>
+                                    <th class="pb-2">Patient</th>
+                                    <th class="pb-2">Phone</th>
+                                    <th class="pb-2">Reason</th>
+                                    <th class="pb-2">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-<%= doctor.id %>">
+                                <% doctor.all.forEach(function(apt) { %>
+                                <tr class="border-b border-gray-200 filter-row" data-status="<%= apt.status %>">
+                                    <td class="py-2"><%= apt.date.split('-').reverse().join('/') %></td>
+                                    <td class="py-2 font-medium"><%= apt.time %></td>
+                                    <td class="py-2"><%= apt.patientName %></td>
+                                    <td class="py-2"><%= apt.patientPhone %></td>
+                                    <td class="py-2 text-gray-600"><%= apt.reason %></td>
+                                    <td class="py-2">
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium
+                                            <%= apt.status === 'scheduled' ? 'bg-blue-100 text-blue-700' : 
+                                               apt.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                                               'bg-red-100 text-red-700' %>">
+                                            <%= apt.status.charAt(0).toUpperCase() + apt.status.slice(1) %>
+                                        </span>
+                                    </td>
+                                </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <% }); %>
+        <% } else { %>
+        <div class="bg-white rounded-xl shadow-sm border p-12 text-center">
+            <p class="text-gray-500">No appointments found for the selected date range</p>
+        </div>
+        <% } %>
+    </div>
+
+    <script>
+        function filterAppointments(doctorId, filter) {
+            const rows = document.querySelectorAll('#table-' + doctorId + ' .filter-row');
+            const filterTitle = document.getElementById('filterTitle-' + doctorId);
+            const allBtn = document.getElementById('btn-' + doctorId + '-all');
+            const scheduledBtn = document.getElementById('btn-' + doctorId + '-scheduled');
+            const completedBtn = document.getElementById('btn-' + doctorId + '-completed');
+            const cancelledBtn = document.getElementById('btn-' + doctorId + '-cancelled');
+            
+            // Reset all buttons
+            allBtn.className = 'filter-btn px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition';
+            scheduledBtn.className = 'filter-btn px-4 py-2 rounded-lg bg-blue-100 text-blue-700 font-medium hover:bg-blue-200 transition';
+            completedBtn.className = 'filter-btn px-4 py-2 rounded-lg bg-green-100 text-green-700 font-medium hover:bg-green-200 transition';
+            cancelledBtn.className = 'filter-btn px-4 py-2 rounded-lg bg-red-100 text-red-700 font-medium hover:bg-red-200 transition';
+            
+            // Highlight active button
+            const activeBtn = document.getElementById('btn-' + doctorId + '-' + filter);
+            activeBtn.className = 'filter-btn px-4 py-2 rounded-lg bg-teal-600 text-white font-medium';
+            
+            let count = 0;
+            rows.forEach(row => {
+                const status = row.getAttribute('data-status');
+                if (filter === 'all' || status === filter) {
+                    row.style.display = '';
+                    count++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Update title
+            const titles = {
+                'all': 'All Appointments',
+                'scheduled': 'Scheduled Appointments',
+                'completed': 'Completed Appointments',
+                'cancelled': 'Cancelled Appointments'
+            };
+            filterTitle.textContent = titles[filter] + ' (' + count + ')';
+        }
+    </script>
+</body>
+</html>
