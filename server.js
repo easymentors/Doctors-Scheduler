@@ -20,7 +20,7 @@ const PORT = process.env.PORT || 3000;
 // DATABASE - Super Admin (Neon PostgreSQL)
 // ============================================
 
-const SUPER_DB = process.env.SUPER_DB || 'postgresql://neondb_owner:npg_E7Aqg2ofyjHD@ep-winter-salad-a125zfed-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+const SUPER_DB = process.env.SUPER_DB || 'postgresql://neondb_owner:npg_E7Aqg2ofyjHD@ep-winter-salad-a125zfed-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require';
 
 let superPool = null;
 
@@ -30,7 +30,8 @@ async function getSuperPool() {
             connectionString: SUPER_DB,
             max: 1,
             idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 10000
+            connectionTimeoutMillis: 10000,
+            ssl: { rejectUnauthorized: false }
         });
     }
     return superPool;
@@ -42,12 +43,13 @@ const hospitalPools = {};
 function getHospitalPool(hospitalSlug) {
     if (!hospitalPools[hospitalSlug]) {
         const baseUrl = 'ep-winter-salad-a125zfed-pooler.ap-southeast-1.aws.neon.tech';
-        const connString = `postgresql://neondb_owner:npg_E7Aqg2ofyjHD@${baseUrl}/${hospitalSlug}?sslmode=require&channel_binding=require`;
+        const connString = `postgresql://neondb_owner:npg_E7Aqg2ofyjHD@${baseUrl}/${hospitalSlug}?sslmode=require`;
         hospitalPools[hospitalSlug] = new Pool({ 
             connectionString: connString,
             max: 1,
             idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 10000
+            connectionTimeoutMillis: 10000,
+            ssl: { rejectUnauthorized: false }
         });
     }
     return hospitalPools[hospitalSlug];
