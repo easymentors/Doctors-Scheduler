@@ -22,11 +22,16 @@ const PORT = process.env.PORT || 3000;
 
 const SUPER_DB = process.env.SUPER_DB || 'postgresql://neondb_owner:npg_E7Aqg2ofyjHD@ep-winter-salad-a125zfed-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
 
-let superPool;
+let superPool = null;
 
-function getSuperPool() {
+async function getSuperPool() {
     if (!superPool) {
-        superPool = new Pool({ connectionString: SUPER_DB });
+        superPool = new Pool({ 
+            connectionString: SUPER_DB,
+            max: 1,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000
+        });
     }
     return superPool;
 }
@@ -38,25 +43,34 @@ function getHospitalPool(hospitalSlug) {
     if (!hospitalPools[hospitalSlug]) {
         const baseUrl = 'ep-winter-salad-a125zfed-pooler.ap-southeast-1.aws.neon.tech';
         const connString = `postgresql://neondb_owner:npg_E7Aqg2ofyjHD@${baseUrl}/${hospitalSlug}?sslmode=require&channel_binding=require`;
-        hospitalPools[hospitalSlug] = new Pool({ connectionString: connString });
+        hospitalPools[hospitalSlug] = new Pool({ 
+            connectionString: connString,
+            max: 1,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000
+        });
     }
     return hospitalPools[hospitalSlug];
 }
 
 async function initSuperDatabase() {
-    const pool = getSuperPool();
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS hospitals (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            slug VARCHAR(100) UNIQUE NOT NULL,
-            admin_username VARCHAR(100) NOT NULL,
-            admin_password VARCHAR(255) NOT NULL,
-            active BOOLEAN DEFAULT true,
-            created_at TIMESTAMP DEFAULT NOW()
-        )
-    `);
-    console.log('Super database initialized');
+    try {
+        const pool = await getSuperPool();
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS hospitals (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                slug VARCHAR(100) UNIQUE NOT NULL,
+                admin_username VARCHAR(100) NOT NULL,
+                admin_password VARCHAR(255) NOT NULL,
+                active BOOLEAN DEFAULT true,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        console.log('Super database initialized');
+    } catch (err) {
+        console.error('Error initializing super database:', err.message);
+    }
 }
 
 async function getHospitalBySlug(slug) {
@@ -1384,13 +1398,15 @@ app.get('/api/appointment/:id/whatsapp', requireFocal, (req, res) => {
 // START SERVER
 // ============================================
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log('========================================');
     console.log('Hospital Doctors Appointment Scheduler');
+    console.log('Multi-Tenant SaaS Version');
     console.log('========================================');
     console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Admin Panel: http://localhost:${PORT}/admin/dashboard`);
-    console.log(`Login: http://localhost:${PORT}/login`);
-    console.log('Default Admin: admin / 12345678');
+    console.log(`Super Admin: http://localhost:${PORT}/super-admin/login`);
     console.log('========================================');
+    
+    // Initialize super database
+    await initSuperDatabase();
 });
