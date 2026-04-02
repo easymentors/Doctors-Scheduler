@@ -1,5 +1,6 @@
 // ============================================
 // Hospital Doctors Appointment Scheduler
+// Multi-Tenant SaaS Version
 // ============================================
 
 const express = require('express');
@@ -10,9 +11,147 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ============================================
+// DATABASE - Super Admin (Neon PostgreSQL)
+// ============================================
+
+const SUPER_DB = process.env.SUPER_DB || 'postgresql://neondb_owner:npg_E7Aqg2ofyjHD@ep-winter-salad-a125zfed-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+
+let superPool;
+
+function getSuperPool() {
+    if (!superPool) {
+        superPool = new Pool({ connectionString: SUPER_DB });
+    }
+    return superPool;
+}
+
+// Hospital connection pools cache
+const hospitalPools = {};
+
+function getHospitalPool(hospitalSlug) {
+    if (!hospitalPools[hospitalSlug]) {
+        const baseUrl = 'ep-winter-salad-a125zfed-pooler.ap-southeast-1.aws.neon.tech';
+        const connString = `postgresql://neondb_owner:npg_E7Aqg2ofyjHD@${baseUrl}/${hospitalSlug}?sslmode=require&channel_binding=require`;
+        hospitalPools[hospitalSlug] = new Pool({ connectionString: connString });
+    }
+    return hospitalPools[hospitalSlug];
+}
+
+async function initSuperDatabase() {
+    const pool = getSuperPool();
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS hospitals (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            slug VARCHAR(100) UNIQUE NOT NULL,
+            admin_username VARCHAR(100) NOT NULL,
+            admin_password VARCHAR(255) NOT NULL,
+            active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    console.log('Super database initialized');
+}
+
+async function getHospitalBySlug(slug) {
+    const pool = getSuperPool();
+    const result = await pool.query(
+        'SELECT * FROM hospitals WHERE slug = $1 AND active = true',
+        [slug]
+    );
+    return result.rows[0];
+}
+
+async function getAllHospitals() {
+    const pool = getSuperPool();
+    const result = await pool.query('SELECT id, name, slug, created_at FROM hospitals ORDER BY created_at DESC');
+    return result.rows;
+}
+
+async function createHospital(name, slug, adminUsername, adminPassword) {
+    const pool = getSuperPool();
+    
+    const result = await pool.query(
+        `INSERT INTO hospitals (name, slug, admin_username, admin_password, active, created_at)
+         VALUES ($1, $2, $3, $4, true, NOW())
+         RETURNING id, name, slug`,
+        [name, slug, adminUsername, adminPassword]
+    );
+    
+    const hospital = result.rows[0];
+    
+    try {
+        await pool.query(`CREATE DATABASE "${hospital.slug}"`);
+    } catch (dbErr) {
+        if (!dbErr.message.includes('already exists')) {
+            throw dbErr;
+        }
+    }
+    
+    const hospitalPool = getHospitalPool(hospital.slug);
+    
+    await hospitalPool.query(`
+        CREATE TABLE IF NOT EXISTS doctors (
+            id VARCHAR(50) PRIMARY KEY,
+            name_en VARCHAR(255) NOT NULL,
+            name_ur VARCHAR(255),
+            specialization_en VARCHAR(255),
+            specialization_ur VARCHAR(255),
+            phone VARCHAR(50),
+            email VARCHAR(255),
+            password VARCHAR(255) DEFAULT '12345678',
+            working_hours JSONB,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    
+    await hospitalPool.query(`
+        CREATE TABLE IF NOT EXISTS appointments (
+            id SERIAL PRIMARY KEY,
+            doctor_id VARCHAR(50) REFERENCES doctors(id),
+            doctor_name VARCHAR(255),
+            patient_name VARCHAR(255) NOT NULL,
+            patient_phone VARCHAR(50) NOT NULL,
+            date VARCHAR(20) NOT NULL,
+            time VARCHAR(20) NOT NULL,
+            reason TEXT,
+            status VARCHAR(20) DEFAULT 'scheduled',
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    
+    await hospitalPool.query(`
+        CREATE TABLE IF NOT EXISTS settings (
+            id SERIAL PRIMARY KEY,
+            key VARCHAR(100) UNIQUE NOT NULL,
+            value TEXT
+        )
+    `);
+    
+    await hospitalPool.query(`INSERT INTO settings (key, value) VALUES 
+        ('hospital_name', $1),
+        ('hospital_name_en', $1),
+        ('hospital_phone', '+92-300-1234567'),
+        ('hospital_email', 'info@hospital.com')
+    ` ON CONFLICT (key) DO NOTHING`, [name]);
+    
+    return hospital;
+}
+
+async function authenticateHospitalAdmin(username, password, hospitalSlug) {
+    const hospital = await getHospitalBySlug(hospitalSlug);
+    if (!hospital) return null;
+    if (hospital.admin_username === username && hospital.admin_password === password) {
+        return hospital;
+    }
+    return null;
+}
 
 // ============================================
 // CONFIGURATION
@@ -378,6 +517,65 @@ function requireManager(req, res, next) {
 // PUBLIC ROUTES
 // ============================================
 
+// Super Admin Routes
+const SUPER_ADMIN_USERNAME = 'superadmin';
+const SUPER_ADMIN_PASSWORD = 'HDS@2024!';
+
+app.get('/super-admin/login', (req, res) => {
+    res.render('super-admin/login', { error: null });
+});
+
+app.post('/super-admin/login', async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (username === SUPER_ADMIN_USERNAME && password === SUPER_ADMIN_PASSWORD) {
+        req.session.superAdmin = true;
+        res.redirect('/super-admin/dashboard');
+    } else {
+        res.render('super-admin/login', { error: 'Invalid credentials' });
+    }
+});
+
+app.get('/super-admin/dashboard', async (req, res) => {
+    if (!req.session.superAdmin) {
+        return res.redirect('/super-admin/login');
+    }
+    
+    try {
+        const hospitals = await getAllHospitals();
+        res.render('super-admin/dashboard', { hospitals, user: req.session.superAdmin });
+    } catch (err) {
+        console.error('Error fetching hospitals:', err);
+        res.render('super-admin/dashboard', { hospitals: [], user: req.session.superAdmin, error: err.message });
+    }
+});
+
+app.post('/super-admin/hospitals/add', async (req, res) => {
+    if (!req.session.superAdmin) {
+        return res.redirect('/super-admin/login');
+    }
+    
+    const { name, slug, adminUsername, adminPassword } = req.body;
+    
+    try {
+        const hospital = await createHospital(name, slug, adminUsername, adminPassword);
+        res.redirect('/super-admin/dashboard');
+    } catch (err) {
+        console.error('Error creating hospital:', err);
+        const hospitals = await getAllHospitals();
+        res.render('super-admin/dashboard', { 
+            hospitals, 
+            user: req.session.superAdmin, 
+            error: err.message 
+        });
+    }
+});
+
+app.get('/super-admin/logout', (req, res) => {
+    req.session.destroy();
+    res.redirect('/super-admin/login');
+});
+
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
@@ -461,6 +659,208 @@ app.post('/login', (req, res) => {
 app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
+});
+
+// ============================================
+// HOSPITAL ROUTES (Multi-Tenant)
+// ============================================
+
+app.get('/:hospital/login', async (req, res) => {
+    const { hospital } = req.params;
+    const hospitalData = await getHospitalBySlug(hospital);
+    
+    if (!hospitalData) {
+        return res.status(404).send('Hospital not found');
+    }
+    
+    res.render('hospital-login', { 
+        error: null, 
+        hospital: hospitalData,
+        hospitalSlug: hospital 
+    });
+});
+
+app.post('/:hospital/login', async (req, res) => {
+    const { hospital } = req.params;
+    const { username, password } = req.body;
+    
+    const hospitalData = await authenticateHospitalAdmin(username, password, hospital);
+    
+    if (hospitalData) {
+        req.session.user = { 
+            username: username, 
+            name: 'Administrator', 
+            role: 'admin',
+            hospital: hospitalData.slug 
+        };
+        res.redirect(`/${hospital}/admin/dashboard`);
+    } else {
+        res.render('hospital-login', { 
+            error: 'Invalid credentials', 
+            hospital: hospitalData,
+            hospitalSlug: hospital 
+        });
+    }
+});
+
+app.get('/:hospital/admin/dashboard', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital) {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    
+    const { hospital } = req.params;
+    if (req.session.user.hospital !== hospital) {
+        return res.redirect(`/${hospital}/login`);
+    }
+    
+    const pool = getHospitalPool(hospital);
+    const appointmentsResult = await pool.query('SELECT * FROM appointments ORDER BY date DESC, time DESC');
+    const doctorsResult = await pool.query('SELECT * FROM doctors ORDER BY name_en');
+    const settingsResult = await pool.query('SELECT * FROM settings');
+    
+    const today = new Date().toISOString().split('T')[0];
+    const todayAppts = appointmentsResult.rows.filter(a => a.date === today);
+    const upcomingAppts = appointmentsResult.rows.filter(a => a.date > today && a.status !== 'cancelled');
+    
+    const settings = {};
+    settingsResult.rows.forEach(s => { settings[s.key] = s.value; });
+    
+    res.render('hospital/dashboard', {
+        user: req.session.user,
+        hospital: hospital,
+        todayAppointments: todayAppts,
+        upcomingAppointments: upcomingAppts,
+        totalAppointments: appointmentsResult.rows.length,
+        doctors: doctorsResult.rows,
+        settings: settings,
+        lang: 'en'
+    });
+});
+
+app.get('/:hospital/admin/appointments', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital) {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    
+    const { hospital } = req.params;
+    const pool = getHospitalPool(hospital);
+    const doctorsResult = await pool.query('SELECT * FROM doctors ORDER BY name_en');
+    const appointmentsResult = await pool.query('SELECT * FROM appointments ORDER BY date DESC, time DESC');
+    
+    res.render('hospital/appointments', {
+        user: req.session.user,
+        hospital: hospital,
+        appointments: appointmentsResult.rows,
+        doctors: doctorsResult.rows,
+        filters: req.query,
+        lang: 'en'
+    });
+});
+
+app.get('/:hospital/admin/doctors', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital || req.session.user.role !== 'admin') {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    
+    const { hospital } = req.params;
+    const pool = getHospitalPool(hospital);
+    const doctorsResult = await pool.query('SELECT * FROM doctors ORDER BY name_en');
+    
+    res.render('hospital/doctors', {
+        user: req.session.user,
+        hospital: hospital,
+        doctors: doctorsResult.rows,
+        lang: 'en'
+    });
+});
+
+app.get('/:hospital/admin/book', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital) {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    
+    const { hospital } = req.params;
+    const pool = getHospitalPool(hospital);
+    const doctorsResult = await pool.query('SELECT * FROM doctors ORDER BY name_en');
+    
+    res.render('hospital/book', {
+        user: req.session.user,
+        hospital: hospital,
+        doctors: doctorsResult.rows,
+        lang: 'en'
+    });
+});
+
+app.post('/:hospital/admin/appointments/book', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital) {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    
+    const { hospital } = req.params;
+    const { doctorId, patientName, patientPhone, date, time, reason } = req.body;
+    const pool = getHospitalPool(hospital);
+    
+    const doctorResult = await pool.query('SELECT name_en, specialization_en FROM doctors WHERE id = $1', [doctorId]);
+    const doctor = doctorResult.rows[0];
+    
+    await pool.query(
+        `INSERT INTO appointments (doctor_id, doctor_name, patient_name, patient_phone, date, time, reason, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'scheduled')`,
+        [doctorId, `${doctor.name_en} (${doctor.specialization_en})`, patientName, patientPhone, date, time, reason]
+    );
+    
+    res.redirect(`/${hospital}/admin/appointments`);
+});
+
+app.get('/:hospital/admin/settings', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital || req.session.user.role !== 'admin') {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    
+    const { hospital } = req.params;
+    const pool = getHospitalPool(hospital);
+    const settingsResult = await pool.query('SELECT * FROM settings');
+    
+    const settings = {};
+    settingsResult.rows.forEach(s => { settings[s.key] = s.value; });
+    
+    res.render('hospital/settings', {
+        user: req.session.user,
+        hospital: hospital,
+        settings: settings,
+        lang: 'en'
+    });
+});
+
+app.post('/:hospital/admin/settings', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital || req.session.user.role !== 'admin') {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    
+    const { hospital } = req.params;
+    const { hospital_name, hospital_phone, hospital_email, admin_username, admin_password } = req.body;
+    const pool = getHospitalPool(hospital);
+    
+    const settingsToUpdate = [
+        ['hospital_name', hospital_name],
+        ['hospital_phone', hospital_phone],
+        ['hospital_email', hospital_email]
+    ];
+    
+    for (const [key, value] of settingsToUpdate) {
+        await pool.query(
+            'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2',
+            [key, value]
+        );
+    }
+    
+    res.redirect(`/${hospital}/admin/settings`);
+});
+
+app.get('/:hospital/logout', (req, res) => {
+    const hospital = req.params.hospital;
+    req.session.destroy();
+    res.redirect(`/${hospital}/login`);
 });
 
 // ============================================
