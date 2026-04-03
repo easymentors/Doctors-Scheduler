@@ -713,7 +713,7 @@ app.get('/:hospital/login', async (req, res) => {
         return res.status(404).send('Hospital not found');
     }
     
-    res.render('hospital-login', { 
+    res.render('hospital/login', { 
         error: null, 
         hospital: hospitalData,
         hospitalSlug: hospital 
@@ -735,7 +735,7 @@ app.post('/:hospital/login', async (req, res) => {
         };
         res.redirect(`/${hospital}/admin/dashboard`);
     } else {
-        res.render('hospital-login', { 
+        res.render('hospital/login', { 
             error: 'Invalid credentials', 
             hospital: hospitalData,
             hospitalSlug: hospital 
