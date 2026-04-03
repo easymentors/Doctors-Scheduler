@@ -150,12 +150,18 @@ async function createHospital(name, slug, adminUsername, adminPassword) {
         )
     `);
     
-    await hospitalPool.query(`INSERT INTO settings (key, value) VALUES 
-        ('hospital_name', $1),
-        ('hospital_name_en', $1),
-        ('hospital_phone', '+92-300-1234567'),
-        ('hospital_email', 'info@hospital.com')
-    ` ON CONFLICT (key) DO NOTHING`, [name]);
+    await hospitalPool.query(
+        'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+        ['hospital_name', name]
+    );
+    await hospitalPool.query(
+        'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+        ['hospital_phone', '+92-300-1234567']
+    );
+    await hospitalPool.query(
+        'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+        ['hospital_email', 'info@hospital.com']
+    );
     
     return hospital;
 }
