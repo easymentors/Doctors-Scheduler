@@ -80,12 +80,95 @@ function initSuperDatabase() {
                     ('City General Hospital', 'city-hospital', 'admin', 'city123', true, NOW()),
                     ('Medicare Center', 'medicare', 'admin', 'med123', true, NOW()),
                     ('Health Plus Hospital', 'health-plus', 'admin', 'health123', true, NOW())
-                `).then(() => console.log('Sample hospitals created')).catch(() => {});
+                `).then(() => {
+                    console.log('Sample hospitals created');
+                    // Now create databases for each sample hospital
+                    setupSampleHospitalDB('city-hospital', 'City General Hospital');
+                    setupSampleHospitalDB('medicare', 'Medicare Center');
+                    setupSampleHospitalDB('health-plus', 'Health Plus Hospital');
+                }).catch(() => {});
             }
         }).catch(() => {});
     }).catch(err => {
         console.log('Hospitals table ready or error:', err.message);
     });
+}
+
+async function setupSampleHospitalDB(slug, name) {
+    const baseUrl = 'ep-winter-salad-a125zfed-pooler.ap-southeast-1.aws.neon.tech';
+    const connString = `postgresql://neondb_owner:npg_E7Aqg2ofyjHD@${baseUrl}/${slug}?sslmode=require`;
+    
+    // Get super pool and try to create the database (might fail if it exists, that's OK)
+    const superP = getSuperPool();
+    try {
+        await superP.query(`CREATE DATABASE "${slug}"`);
+    } catch (e) {
+        // Database might already exist
+    }
+    
+    // Now connect to the hospital database and create tables
+    const hospitalPool = new Pool({ 
+        connectionString: connString,
+        ssl: { rejectUnauthorized: false }
+    });
+    
+    try {
+        await hospitalPool.query(`
+            CREATE TABLE IF NOT EXISTS doctors (
+                id VARCHAR(50) PRIMARY KEY,
+                name_en VARCHAR(255) NOT NULL,
+                name_ur VARCHAR(255),
+                specialization_en VARCHAR(255),
+                specialization_ur VARCHAR(255),
+                phone VARCHAR(50),
+                email VARCHAR(255),
+                password VARCHAR(255) DEFAULT '12345678',
+                working_hours JSONB,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        
+        await hospitalPool.query(`
+            CREATE TABLE IF NOT EXISTS appointments (
+                id SERIAL PRIMARY KEY,
+                doctor_id VARCHAR(50),
+                doctor_name VARCHAR(255),
+                patient_name VARCHAR(255) NOT NULL,
+                patient_phone VARCHAR(50) NOT NULL,
+                date VARCHAR(20) NOT NULL,
+                time VARCHAR(20) NOT NULL,
+                reason TEXT,
+                status VARCHAR(20) DEFAULT 'scheduled',
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        
+        await hospitalPool.query(`
+            CREATE TABLE IF NOT EXISTS settings (
+                id SERIAL PRIMARY KEY,
+                key VARCHAR(100) UNIQUE NOT NULL,
+                value TEXT
+            )
+        `);
+        
+        await hospitalPool.query(
+            'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+            ['hospital_name', name]
+        );
+        await hospitalPool.query(
+            'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+            ['hospital_phone', '+92-300-1234567']
+        );
+        await hospitalPool.query(
+            'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+            ['hospital_email', 'info@hospital.com']
+        );
+        
+        console.log(`Database setup complete for ${slug}`);
+        await hospitalPool.end();
+    } catch (err) {
+        console.log(`Error setting up ${slug}:`, err.message);
+    }
 }
 
 async function getHospitalBySlug(slug) {
@@ -755,28 +838,33 @@ app.get('/:hospital/admin/dashboard', async (req, res) => {
         return res.redirect(`/${hospital}/login`);
     }
     
-    const pool = getHospitalPool(hospital);
-    const appointmentsResult = await pool.query('SELECT * FROM appointments ORDER BY date DESC, time DESC');
-    const doctorsResult = await pool.query('SELECT * FROM doctors ORDER BY name_en');
-    const settingsResult = await pool.query('SELECT * FROM settings');
-    
-    const today = new Date().toISOString().split('T')[0];
-    const todayAppts = appointmentsResult.rows.filter(a => a.date === today);
-    const upcomingAppts = appointmentsResult.rows.filter(a => a.date > today && a.status !== 'cancelled');
-    
-    const settings = {};
-    settingsResult.rows.forEach(s => { settings[s.key] = s.value; });
-    
-    res.render('hospital/dashboard', {
-        user: req.session.user,
-        hospital: hospital,
-        todayAppointments: todayAppts,
-        upcomingAppointments: upcomingAppts,
-        totalAppointments: appointmentsResult.rows.length,
-        doctors: doctorsResult.rows,
-        settings: settings,
-        lang: 'en'
-    });
+    try {
+        const pool = getHospitalPool(hospital);
+        const appointmentsResult = await pool.query('SELECT * FROM appointments ORDER BY date DESC, time DESC');
+        const doctorsResult = await pool.query('SELECT * FROM doctors ORDER BY name_en');
+        const settingsResult = await pool.query('SELECT * FROM settings');
+        
+        const today = new Date().toISOString().split('T')[0];
+        const todayAppts = appointmentsResult.rows.filter(a => a.date === today);
+        const upcomingAppts = appointmentsResult.rows.filter(a => a.date > today && a.status !== 'cancelled');
+        
+        const settings = {};
+        settingsResult.rows.forEach(s => { settings[s.key] = s.value; });
+        
+        res.render('hospital/dashboard', {
+            user: req.session.user,
+            hospital: hospital,
+            todayAppointments: todayAppts,
+            upcomingAppointments: upcomingAppts,
+            totalAppointments: appointmentsResult.rows.length,
+            doctors: doctorsResult.rows,
+            settings: settings,
+            lang: 'en'
+        });
+    } catch (err) {
+        console.error('Error loading hospital dashboard:', err.message);
+        res.status(500).send('Hospital database not ready. Please contact administrator.');
+    }
 });
 
 app.get('/:hospital/admin/appointments', async (req, res) => {
