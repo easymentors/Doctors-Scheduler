@@ -55,24 +55,37 @@ function getHospitalPool(hospitalSlug) {
     return hospitalPools[hospitalSlug];
 }
 
-async function initSuperDatabase() {
-    try {
-        const pool = await getSuperPool();
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS hospitals (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                slug VARCHAR(100) UNIQUE NOT NULL,
-                admin_username VARCHAR(100) NOT NULL,
-                admin_password VARCHAR(255) NOT NULL,
-                active BOOLEAN DEFAULT true,
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        `);
+function initSuperDatabase() {
+    const pool = getSuperPool();
+    pool.query(`
+        CREATE TABLE IF NOT EXISTS hospitals (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            slug VARCHAR(100) UNIQUE NOT NULL,
+            admin_username VARCHAR(100) NOT NULL,
+            admin_password VARCHAR(255) NOT NULL,
+            active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `).then(() => {
         console.log('Super database initialized');
-    } catch (err) {
-        console.error('Error initializing super database:', err.message);
-    }
+        
+        // Add sample hospitals if none exist
+        pool.query('SELECT COUNT(*) as count FROM hospitals').then(result => {
+            if (parseInt(result.rows[0].count) === 0) {
+                // Insert sample hospitals
+                pool.query(`
+                    INSERT INTO hospitals (name, slug, admin_username, admin_password, active, created_at)
+                    VALUES 
+                    ('City General Hospital', 'city-hospital', 'admin', 'city123', true, NOW()),
+                    ('Medicare Center', 'medicare', 'admin', 'med123', true, NOW()),
+                    ('Health Plus Hospital', 'health-plus', 'admin', 'health123', true, NOW())
+                `).then(() => console.log('Sample hospitals created')).catch(() => {});
+            }
+        }).catch(() => {});
+    }).catch(err => {
+        console.log('Hospitals table ready or error:', err.message);
+    });
 }
 
 async function getHospitalBySlug(slug) {
@@ -85,9 +98,14 @@ async function getHospitalBySlug(slug) {
 }
 
 async function getAllHospitals() {
-    const pool = getSuperPool();
-    const result = await pool.query('SELECT id, name, slug, created_at FROM hospitals ORDER BY created_at DESC');
-    return result.rows;
+    try {
+        const pool = getSuperPool();
+        const result = await pool.query('SELECT id, name, slug, created_at FROM hospitals ORDER BY created_at DESC');
+        return result.rows;
+    } catch (err) {
+        console.error('Error getting hospitals:', err.message);
+        return [];
+    }
 }
 
 async function createHospital(name, slug, adminUsername, adminPassword) {
