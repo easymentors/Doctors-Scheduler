@@ -583,7 +583,7 @@ app.get('/super-admin/dashboard', async (req, res) => {
     
     try {
         const hospitals = await getAllHospitals();
-        res.render('super-admin/dashboard', { hospitals, user: req.session.superAdmin });
+        res.render('super-admin/dashboard', { hospitals, user: req.session.superAdmin, error: null });
     } catch (err) {
         console.error('Error fetching hospitals:', err);
         res.render('super-admin/dashboard', { hospitals: [], user: req.session.superAdmin, error: err.message });
@@ -1433,6 +1433,6 @@ app.listen(PORT, async () => {
     console.log(`Super Admin: http://localhost:${PORT}/super-admin/login`);
     console.log('========================================');
     
-    // Initialize super database
-    await initSuperDatabase();
+    // Initialize super database (no await - function is now synchronous)
+    initSuperDatabase();
 });
