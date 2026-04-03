@@ -724,32 +724,24 @@ app.post('/:hospital/login', async (req, res) => {
     const { hospital } = req.params;
     const { username, password } = req.body;
     
-    console.log('Login attempt for hospital:', hospital, 'username:', username);
-    
     const hospitalData = await authenticateHospitalAdmin(username, password, hospital);
-    console.log('Hospital data found:', hospitalData ? 'yes' : 'no');
     
     if (hospitalData) {
-        console.log('Authentication successful, setting session');
         req.session.user = { 
             username: username, 
             name: 'Administrator', 
             role: 'admin',
             hospital: hospitalData.slug 
         };
-        console.log('Redirecting to:', `/${hospital}/admin/dashboard`);
-        return res.redirect(`/${hospital}/admin/dashboard`);
+        res.redirect(`/${hospital}/admin/dashboard`);
     } else {
-        console.log('Authentication failed, showing error');
         // Get hospital info for the view (since hospitalData is null on failure)
         const hospitalInfo = await getHospitalBySlug(hospital);
-        return res.render('hospital/login', { 
+        res.render('hospital/login', { 
             error: 'Invalid credentials', 
             hospital: hospitalInfo,
             hospitalSlug: hospital 
         });
-    }
-});
     }
 });
 
