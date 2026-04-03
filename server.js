@@ -24,7 +24,7 @@ const SUPER_DB = process.env.SUPER_DB || 'postgresql://neondb_owner:npg_E7Aqg2of
 
 let superPool = null;
 
-async function getSuperPool() {
+function getSuperPool() {
     if (!superPool) {
         superPool = new Pool({ 
             connectionString: SUPER_DB,
