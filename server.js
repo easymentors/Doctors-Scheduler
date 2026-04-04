@@ -64,6 +64,7 @@ function initDatabase() {
                 specialization_ur VARCHAR(255),
                 phone VARCHAR(50),
                 email VARCHAR(255),
+                username VARCHAR(100),
                 password VARCHAR(255) DEFAULT '12345678',
                 working_hours JSONB,
                 hospital_slug VARCHAR(100) NOT NULL,
@@ -434,16 +435,16 @@ app.post('/:hospital/admin/doctors/add', async (req, res) => {
         return res.redirect(`/${req.params.hospital}/login`);
     }
     const { hospital } = req.params;
-    const { name_en, specialization_en, phone, email, workingDays, startTime, endTime } = req.body;
+    const { name_en, specialization_en, phone, email, username, password, workingDays, startTime, endTime } = req.body;
     const pool = getPool();
     
     const doctorId = 'DOC-' + Date.now();
     const workingHours = workingDays ? JSON.stringify({ days: workingDays, startTime, endTime }) : null;
     
     await pool.query(
-        `INSERT INTO doctors (id, name_en, specialization_en, phone, email, password, working_hours, hospital_slug)
-         VALUES ($1, $2, $3, $4, $5, '12345678', $6, $7)`,
-        [doctorId, name_en, specialization_en, phone, email, workingHours, hospital]
+        `INSERT INTO doctors (id, name_en, specialization_en, phone, email, username, password, working_hours, hospital_slug)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [doctorId, name_en, specialization_en, phone, email, username || email, password || '12345678', workingHours, hospital]
     );
     
     res.redirect(`/${hospital}/admin/doctors`);
@@ -454,15 +455,15 @@ app.post('/:hospital/admin/doctors/:id/update', async (req, res) => {
         return res.redirect(`/${req.params.hospital}/login`);
     }
     const { hospital, id } = req.params;
-    const { name_en, specialization_en, phone, email, workingDays, startTime, endTime } = req.body;
+    const { name_en, specialization_en, phone, email, username, password, workingDays, startTime, endTime } = req.body;
     const pool = getPool();
     
     const workingHours = workingDays ? JSON.stringify({ days: workingDays, startTime, endTime }) : null;
     
     await pool.query(
-        `UPDATE doctors SET name_en = $1, specialization_en = $2, phone = $3, email = $4, working_hours = $5
-         WHERE id = $6 AND hospital_slug = $7`,
-        [name_en, specialization_en, phone, email, workingHours, id, hospital]
+        `UPDATE doctors SET name_en = $1, specialization_en = $2, phone = $3, email = $4, username = $5, password = $6, working_hours = $7
+         WHERE id = $8 AND hospital_slug = $9`,
+        [name_en, specialization_en, phone, email, username || email, password || '12345678', workingHours, id, hospital]
     );
     
     res.redirect(`/${hospital}/admin/doctors`);
@@ -580,6 +581,85 @@ app.post('/:hospital/admin/settings', async (req, res) => {
     await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_email', hospital_email, hospital]);
     
     res.redirect(`/${hospital}/admin/settings`);
+});
+
+// ============================================
+// DOCTOR LOGIN & DASHBOARD
+// ============================================
+
+app.get('/:hospital/doctor/login', async (req, res) => {
+    const { hospital } = req.params;
+    const hospitalData = await getHospitalBySlug(hospital);
+    if (!hospitalData) return res.status(404).send('Hospital not found');
+    res.render('hospital/doctor-login', { error: null, hospital: hospitalData, hospitalSlug: hospital });
+});
+
+app.post('/:hospital/doctor/login', async (req, res) => {
+    const { hospital } = req.params;
+    const { username, password } = req.body;
+    const pool = getPool();
+    
+    const result = await pool.query(
+        'SELECT * FROM doctors WHERE username = $1 AND hospital_slug = $2',
+        [username, hospital]
+    );
+    
+    if (result.rows.length === 0) {
+        const hospitalData = await getHospitalBySlug(hospital);
+        return res.render('hospital/doctor-login', { error: 'Invalid username or password', hospital: hospitalData, hospitalSlug: hospital });
+    }
+    
+    const doctor = result.rows[0];
+    if (doctor.password !== password) {
+        const hospitalData = await getHospitalBySlug(hospital);
+        return res.render('hospital/doctor-login', { error: 'Invalid username or password', hospital: hospitalData, hospitalSlug: hospital });
+    }
+    
+    req.session.doctor = { 
+        id: doctor.id, 
+        name: doctor.name_en, 
+        username: doctor.username, 
+        hospital: hospital 
+    };
+    res.redirect(`/${hospital}/doctor/dashboard`);
+});
+
+app.get('/:hospital/doctor/dashboard', async (req, res) => {
+    if (!req.session.doctor || !req.session.doctor.hospital) {
+        return res.redirect(`/${req.params.hospital}/doctor/login`);
+    }
+    const { hospital } = req.params;
+    if (req.session.doctor.hospital !== hospital) {
+        return res.redirect(`/${hospital}/doctor/login`);
+    }
+    
+    const pool = getPool();
+    const today = new Date().toISOString().split('T')[0];
+    const doctorId = req.session.doctor.id;
+    
+    const appointmentsResult = await pool.query(
+        'SELECT * FROM appointments WHERE doctor_id = $1 AND hospital_slug = $2 ORDER BY date DESC, time DESC',
+        [doctorId, hospital]
+    );
+    
+    const todayAppts = appointmentsResult.rows.filter(a => a.date === today && a.status === 'scheduled');
+    const upcomingAppts = appointmentsResult.rows.filter(a => a.date > today && a.status === 'scheduled');
+    const pastAppts = appointmentsResult.rows.filter(a => a.date < today || a.status === 'completed' || a.status === 'cancelled');
+    
+    res.render('hospital/doctor-dashboard', {
+        doctor: req.session.doctor,
+        hospital,
+        todayAppointments: todayAppts,
+        upcomingAppointments: upcomingAppts,
+        pastAppointments: pastAppts,
+        lang: 'en'
+    });
+});
+
+app.get('/:hospital/doctor/logout', (req, res) => {
+    const hospital = req.params.hospital;
+    req.session.doctor = null;
+    res.redirect(`/${hospital}/doctor/login`);
 });
 
 app.get('/:hospital/logout', (req, res) => {

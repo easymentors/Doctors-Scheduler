@@ -52,12 +52,15 @@
                                 <p class="text-teal-600 font-medium"><%= doctor.specialization_en %></p>
                             </div>
                             <div class="flex space-x-2">
-                                <button onclick='openEditModal("<%= doctor.id %>", "<%= doctor.name_en %>", "<%= doctor.specialization_en %>", "<%= doctor.phone || '' %>", "<%= doctor.email || '' %>", <%- JSON.stringify(doctor.working_hours) %>)' class="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</button>
+                                <button onclick='openEditModal("<%= doctor.id %>", "<%= doctor.name_en %>", "<%= doctor.specialization_en %>", "<%= doctor.phone || '' %>", "<%= doctor.email || '' %>", "<%= doctor.username || '' %>", "<%= doctor.password || '' %>", <%- JSON.stringify(doctor.working_hours) %>)' class="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</button>
                                 <button onclick='openDeleteModal("<%= doctor.id %>", "<%= doctor.name_en %>")' class="text-red-600 hover:text-red-800 text-sm font-medium">Delete</button>
                             </div>
                         </div>
                         <p class="text-sm text-gray-500 mt-2">📞 <%= doctor.phone || 'N/A' %></p>
                         <p class="text-sm text-gray-500">✉️ <%= doctor.email || 'N/A' %></p>
+                        <% if (doctor.username) { %>
+                        <p class="text-sm text-blue-600">👤 Login: <%= doctor.username %></p>
+                        <% } %>
                         <% if (doctor.working_hours && doctor.working_hours.days && doctor.working_hours.days.length > 0) { %>
                         <p class="text-sm text-teal-600 mt-2">🕐 <%= doctor.availability_display %></p>
                         <% } else { %>
@@ -97,6 +100,16 @@
                 <div>
                     <label class="block text-gray-700 font-medium mb-2">Email</label>
                     <input type="email" name="email" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Username (for Login)</label>
+                        <input type="text" name="username" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Username">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Password</label>
+                        <input type="text" name="password" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Password">
+                    </div>
                 </div>
                 <div class="border-t pt-4">
                     <label class="block text-gray-700 font-medium mb-2">Availability</label>
@@ -179,6 +192,16 @@
                 <div>
                     <label class="block text-gray-700 font-medium mb-2">Email</label>
                     <input type="email" name="email" id="editEmail" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Username (for Login)</label>
+                        <input type="text" name="username" id="editUsername" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Username">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Password</label>
+                        <input type="text" name="password" id="editPassword" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Password">
+                    </div>
                 </div>
                 <div class="border-t pt-4">
                     <label class="block text-gray-700 font-medium mb-2">Availability</label>
@@ -277,12 +300,14 @@
             document.getElementById('addDoctorModal').classList.add('hidden');
         }
 
-        function openEditModal(id, name, spec, phone, email, workingHours) {
+        function openEditModal(id, name, spec, phone, email, username, password, workingHours) {
             document.getElementById('editDoctorForm').action = '/<%= hospital %>/admin/doctors/' + id + '/update';
             document.getElementById('editNameEn').value = name;
             document.getElementById('editSpecialization').value = spec;
             document.getElementById('editPhone').value = phone;
             document.getElementById('editEmail').value = email;
+            document.getElementById('editUsername').value = username || '';
+            document.getElementById('editPassword').value = password || '';
             
             document.querySelectorAll('.edit-day-checkbox').forEach(cb => cb.checked = false);
             if (workingHours && workingHours.days) {
