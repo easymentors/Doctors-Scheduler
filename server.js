@@ -408,15 +408,48 @@ app.post('/:hospital/admin/doctors/add', async (req, res) => {
         return res.redirect(`/${req.params.hospital}/login`);
     }
     const { hospital } = req.params;
-    const { name_en, specialization_en, phone, email } = req.body;
+    const { name_en, specialization_en, phone, email, workingDays, startTime, endTime } = req.body;
     const pool = getPool();
     
     const doctorId = 'DOC-' + Date.now();
+    const workingHours = workingDays ? JSON.stringify({ days: workingDays, startTime, endTime }) : null;
+    
     await pool.query(
-        `INSERT INTO doctors (id, name_en, specialization_en, phone, email, password, hospital_slug)
-         VALUES ($1, $2, $3, $4, $5, '12345678', $6)`,
-        [doctorId, name_en, specialization_en, phone, email, hospital]
+        `INSERT INTO doctors (id, name_en, specialization_en, phone, email, password, working_hours, hospital_slug)
+         VALUES ($1, $2, $3, $4, $5, '12345678', $6, $7)`,
+        [doctorId, name_en, specialization_en, phone, email, workingHours, hospital]
     );
+    
+    res.redirect(`/${hospital}/admin/doctors`);
+});
+
+app.post('/:hospital/admin/doctors/:id/update', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital || req.session.user.role !== 'admin') {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    const { hospital, id } = req.params;
+    const { name_en, specialization_en, phone, email, workingDays, startTime, endTime } = req.body;
+    const pool = getPool();
+    
+    const workingHours = workingDays ? JSON.stringify({ days: workingDays, startTime, endTime }) : null;
+    
+    await pool.query(
+        `UPDATE doctors SET name_en = $1, specialization_en = $2, phone = $3, email = $4, working_hours = $5
+         WHERE id = $6 AND hospital_slug = $7`,
+        [name_en, specialization_en, phone, email, workingHours, id, hospital]
+    );
+    
+    res.redirect(`/${hospital}/admin/doctors`);
+});
+
+app.post('/:hospital/admin/doctors/:id/delete', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital || req.session.user.role !== 'admin') {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    const { hospital, id } = req.params;
+    const pool = getPool();
+    
+    await pool.query('DELETE FROM doctors WHERE id = $1 AND hospital_slug = $2', [id, hospital]);
     
     res.redirect(`/${hospital}/admin/doctors`);
 });
