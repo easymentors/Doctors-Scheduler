@@ -43,8 +43,12 @@
             <!-- Filters -->
             <form method="GET" action="/<%= hospital %>/admin/appointments" class="flex flex-wrap gap-4 items-end">
                 <div>
-                    <label class="block text-gray-600 text-sm mb-1">Date</label>
-                    <input type="date" name="date" value="<%= selectedDate %>" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                    <label class="block text-gray-600 text-sm mb-1">From Date</label>
+                    <input type="date" name="dateFrom" value="<%= selectedDateFrom %>" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-gray-600 text-sm mb-1">To Date</label>
+                    <input type="date" name="dateTo" value="<%= selectedDateTo %>" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
                 </div>
                 <div>
                     <label class="block text-gray-600 text-sm mb-1">Doctor</label>
@@ -72,9 +76,9 @@
             
             <div class="mt-4 text-gray-500 text-sm">
                 <%= appointments.length %> appointment<%= appointments.length !== 1 ? 's' : '' %> found
-                <% if (selectedDate || selectedDoctor || (selectedStatus && selectedStatus !== 'all')) { %>
+                <% if (selectedDateFrom || selectedDateTo || selectedDoctor || (selectedStatus && selectedStatus !== 'all')) { %>
                     <span class="ml-2">| Filters: 
-                        <% if (selectedDate) { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1">Date: <%= selectedDate.split('-').reverse().join('/') %></span><% } %>
+                        <% if (selectedDateFrom || selectedDateTo) { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1">Date: <%= selectedDateFrom ? selectedDateFrom.split('-').reverse().join('/') : '...' %> to <%= selectedDateTo ? selectedDateTo.split('-').reverse().join('/') : '...' %></span><% } %>
                         <% if (selectedDoctor) { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1">Doctor</span><% } %>
                         <% if (selectedStatus && selectedStatus !== 'all') { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1"><%= selectedStatus %></span><% } %>
                     </span>

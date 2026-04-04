@@ -347,16 +347,21 @@ app.get('/:hospital/admin/appointments', async (req, res) => {
         return res.redirect(`/${req.params.hospital}/login`);
     }
     const { hospital } = req.params;
-    const { date, doctorId, status } = req.query;
+    const { dateFrom, dateTo, doctorId, status } = req.query;
     const pool = getPool();
     
     let query = 'SELECT * FROM appointments WHERE hospital_slug = $1';
     let params = [hospital];
     let paramIndex = 2;
     
-    if (date) {
-        query += ` AND date = $${paramIndex}`;
-        params.push(date);
+    if (dateFrom) {
+        query += ` AND date >= $${paramIndex}`;
+        params.push(dateFrom);
+        paramIndex++;
+    }
+    if (dateTo) {
+        query += ` AND date <= $${paramIndex}`;
+        params.push(dateTo);
         paramIndex++;
     }
     if (doctorId) {
@@ -380,7 +385,8 @@ app.get('/:hospital/admin/appointments', async (req, res) => {
         appointments: appointmentsResult.rows, 
         doctors: doctorsResult.rows, 
         filters: req.query,
-        selectedDate: date || '',
+        selectedDateFrom: dateFrom || '',
+        selectedDateTo: dateTo || '',
         selectedDoctor: doctorId || '',
         selectedStatus: status || 'all',
         lang: 'en' 
