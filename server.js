@@ -70,7 +70,17 @@ function initDatabase() {
                 hospital_slug VARCHAR(100) NOT NULL,
                 created_at TIMESTAMP DEFAULT NOW()
             )
-        `).then(() => console.log('Doctors table ready')).catch(() => {});
+        `).then(() => {
+            console.log('Doctors table ready');
+            return pool.query(`ALTER TABLE doctors ADD COLUMN IF NOT EXISTS username VARCHAR(100)`);
+        }).then(() => {
+            console.log('Username column ensured');
+            return pool.query(`ALTER TABLE doctors ADD COLUMN IF NOT EXISTS password VARCHAR(255)`);
+        }).then(() => {
+            console.log('Password column ensured');
+        }).catch((err) => {
+            console.log('Error ensuring columns:', err.message);
+        });
         
         // Create appointments table with hospital_slug
         pool.query(`
