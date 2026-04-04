@@ -38,7 +38,10 @@
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border p-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Doctors</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Doctors</h2>
+                <button onclick="document.getElementById('addDoctorModal').classList.remove('hidden')" class="bg-teal-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-teal-700 transition">+ Add Doctor</button>
+            </div>
             <% if (doctors.length > 0) { %>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <% doctors.forEach(function(doctor) { %>
@@ -46,12 +49,47 @@
                         <h3 class="font-bold text-lg text-gray-800"><%= doctor.name_en %></h3>
                         <p class="text-teal-600 font-medium"><%= doctor.specialization_en %></p>
                         <p class="text-sm text-gray-500 mt-2">📞 <%= doctor.phone %></p>
+                        <p class="text-sm text-gray-500">✉️ <%= doctor.email %></p>
                     </div>
                     <% }); %>
                 </div>
             <% } else { %>
                 <p class="text-gray-500 text-center py-8">No doctors added yet</p>
             <% } %>
+        </div>
+    </div>
+
+    <!-- Add Doctor Modal -->
+    <div id="addDoctorModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Add New Doctor</h3>
+                <button onclick="document.getElementById('addDoctorModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form method="POST" action="/<%= hospital %>/admin/doctors/add" class="space-y-4">
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Doctor Name (English) *</label>
+                    <input type="text" name="name_en" required class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Specialization (English) *</label>
+                    <input type="text" name="specialization_en" required class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Phone</label>
+                    <input type="tel" name="phone" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Email</label>
+                    <input type="email" name="email" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="flex-1 bg-teal-600 text-white py-3 rounded-lg font-medium hover:bg-teal-700 transition">Add Doctor</button>
+                    <button type="button" onclick="document.getElementById('addDoctorModal').classList.add('hidden')" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-300 transition">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 </body>

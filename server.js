@@ -356,6 +356,69 @@ app.get('/:hospital/admin/doctors', async (req, res) => {
     res.render('hospital/doctors', { user: req.session.user, hospital, doctors: doctorsResult.rows, lang: 'en' });
 });
 
+app.post('/:hospital/admin/doctors/add', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital || req.session.user.role !== 'admin') {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    const { hospital } = req.params;
+    const { name_en, specialization_en, phone, email } = req.body;
+    const pool = getPool();
+    
+    const doctorId = 'DOC-' + Date.now();
+    await pool.query(
+        `INSERT INTO doctors (id, name_en, specialization_en, phone, email, password, hospital_slug)
+         VALUES ($1, $2, $3, $4, $5, '12345678', $6)`,
+        [doctorId, name_en, specialization_en, phone, email, hospital]
+    );
+    
+    res.redirect(`/${hospital}/admin/doctors`);
+});
+
+app.post('/:hospital/admin/appointments/:id/update', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital) {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    const { hospital, id } = req.params;
+    const { doctorId, patientName, patientPhone, date, time, reason } = req.body;
+    const pool = getPool();
+    
+    const doctorResult = await pool.query('SELECT name_en, specialization_en FROM doctors WHERE id = $1 AND hospital_slug = $2', [doctorId, hospital]);
+    const doctor = doctorResult.rows[0];
+    
+    await pool.query(
+        `UPDATE appointments SET doctor_id = $1, doctor_name = $2, patient_name = $3, patient_phone = $4, date = $5, time = $6, reason = $7
+         WHERE id = $8 AND hospital_slug = $9`,
+        [doctorId, `${doctor.name_en} (${doctor.specialization_en})`, patientName, patientPhone, date, time, reason, id, hospital]
+    );
+    
+    res.redirect(`/${hospital}/admin/appointments`);
+});
+
+app.post('/:hospital/admin/appointments/:id/status', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital) {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    const { hospital, id } = req.params;
+    const { status } = req.body;
+    const pool = getPool();
+    
+    await pool.query('UPDATE appointments SET status = $1 WHERE id = $2 AND hospital_slug = $3', [status, id, hospital]);
+    
+    res.redirect(`/${hospital}/admin/appointments`);
+});
+
+app.post('/:hospital/admin/appointments/:id/delete', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital || req.session.user.role !== 'admin') {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    const { hospital, id } = req.params;
+    const pool = getPool();
+    
+    await pool.query('DELETE FROM appointments WHERE id = $1 AND hospital_slug = $2', [id, hospital]);
+    
+    res.redirect(`/${hospital}/admin/appointments`);
+});
+
 app.get('/:hospital/admin/book', async (req, res) => {
     if (!req.session.user || !req.session.user.hospital) {
         return res.redirect(`/${req.params.hospital}/login`);
