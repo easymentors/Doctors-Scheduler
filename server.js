@@ -198,7 +198,11 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(session({
     secret: 'doctor-scheduler-secret-key',
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 24,
+        httpOnly: true
+    }
 }));
 
 // ============================================
@@ -291,7 +295,13 @@ app.post('/:hospital/login', async (req, res) => {
     const hospitalData = await authenticateHospitalAdmin(username, password, hospital);
     if (hospitalData) {
         req.session.user = { username, name: 'Administrator', role: 'admin', hospital: hospitalData.slug };
-        res.redirect(`/${hospital}/admin/dashboard`);
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return res.redirect(`/${hospital}/login`);
+            }
+            res.redirect(`/${hospital}/admin/dashboard`);
+        });
     } else {
         const hospitalInfo = await getHospitalBySlug(hospital);
         res.render('hospital/login', { error: 'Invalid credentials', hospital: hospitalInfo, hospitalSlug: hospital });
@@ -621,7 +631,13 @@ app.post('/:hospital/doctor/login', async (req, res) => {
         username: doctor.username, 
         hospital: hospital 
     };
-    res.redirect(`/${hospital}/doctor/dashboard`);
+    req.session.save((err) => {
+        if (err) {
+            console.error('Session save error:', err);
+            return res.redirect(`/${hospital}/doctor/login`);
+        }
+        res.redirect(`/${hospital}/doctor/dashboard`);
+    });
 });
 
 app.get('/:hospital/doctor/dashboard', async (req, res) => {
