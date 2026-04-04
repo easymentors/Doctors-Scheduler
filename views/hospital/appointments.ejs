@@ -39,7 +39,47 @@
 
         <div class="bg-white rounded-xl shadow-sm border p-4 sm:p-6 mb-6">
             <h2 class="text-xl font-bold text-gray-800 mb-4">All Appointments</h2>
-            <span class="text-gray-500"><%= appointments.length %> appointments</span>
+            
+            <!-- Filters -->
+            <form method="GET" action="/<%= hospital %>/admin/appointments" class="flex flex-wrap gap-4 items-end">
+                <div>
+                    <label class="block text-gray-600 text-sm mb-1">Date</label>
+                    <input type="date" name="date" value="<%= selectedDate %>" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-gray-600 text-sm mb-1">Doctor</label>
+                    <select name="doctorId" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm min-w-[180px]">
+                        <option value="">All Doctors</option>
+                        <% doctors.forEach(function(doc) { %>
+                        <option value="<%= doc.id %>" <%= selectedDoctor === doc.id ? 'selected' : '' %>><%= doc.name_en %></option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-gray-600 text-sm mb-1">Status</label>
+                    <select name="status" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                        <option value="all" <%= selectedStatus === 'all' ? 'selected' : '' %>>All Status</option>
+                        <option value="scheduled" <%= selectedStatus === 'scheduled' ? 'selected' : '' %>>Scheduled</option>
+                        <option value="completed" <%= selectedStatus === 'completed' ? 'selected' : '' %>>Completed</option>
+                        <option value="cancelled" <%= selectedStatus === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="bg-teal-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-teal-700 transition text-sm">Filter</button>
+                    <a href="/<%= hospital %>/admin/appointments" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition text-sm">Clear</a>
+                </div>
+            </form>
+            
+            <div class="mt-4 text-gray-500 text-sm">
+                <%= appointments.length %> appointment<%= appointments.length !== 1 ? 's' : '' %> found
+                <% if (selectedDate || selectedDoctor || (selectedStatus && selectedStatus !== 'all')) { %>
+                    <span class="ml-2">| Filters: 
+                        <% if (selectedDate) { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1">Date: <%= selectedDate %></span><% } %>
+                        <% if (selectedDoctor) { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1">Doctor</span><% } %>
+                        <% if (selectedStatus && selectedStatus !== 'all') { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1"><%= selectedStatus %></span><% } %>
+                    </span>
+                <% } %>
+            </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border">

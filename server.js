@@ -316,6 +316,10 @@ app.get('/:hospital/admin/dashboard', async (req, res) => {
         const todayAppts = appointmentsResult.rows.filter(a => a.date === today);
         const upcomingAppts = appointmentsResult.rows.filter(a => a.date > today && a.status !== 'cancelled');
         
+        const scheduledCount = appointmentsResult.rows.filter(a => a.status === 'scheduled').length;
+        const completedCount = appointmentsResult.rows.filter(a => a.status === 'completed').length;
+        const cancelledCount = appointmentsResult.rows.filter(a => a.status === 'cancelled').length;
+        
         const settings = {};
         settingsResult.rows.forEach(s => { settings[s.key] = s.value; });
         
@@ -325,6 +329,9 @@ app.get('/:hospital/admin/dashboard', async (req, res) => {
             todayAppointments: todayAppts,
             upcomingAppointments: upcomingAppts,
             totalAppointments: appointmentsResult.rows.length,
+            scheduledCount,
+            completedCount,
+            cancelledCount,
             doctors: doctorsResult.rows,
             settings,
             lang: 'en'
@@ -340,10 +347,44 @@ app.get('/:hospital/admin/appointments', async (req, res) => {
         return res.redirect(`/${req.params.hospital}/login`);
     }
     const { hospital } = req.params;
+    const { date, doctorId, status } = req.query;
     const pool = getPool();
+    
+    let query = 'SELECT * FROM appointments WHERE hospital_slug = $1';
+    let params = [hospital];
+    let paramIndex = 2;
+    
+    if (date) {
+        query += ` AND date = $${paramIndex}`;
+        params.push(date);
+        paramIndex++;
+    }
+    if (doctorId) {
+        query += ` AND doctor_id = $${paramIndex}`;
+        params.push(doctorId);
+        paramIndex++;
+    }
+    if (status && status !== 'all') {
+        query += ` AND status = $${paramIndex}`;
+        params.push(status);
+    }
+    
+    query += ' ORDER BY date DESC, time DESC';
+    
     const doctorsResult = await pool.query('SELECT * FROM doctors WHERE hospital_slug = $1 ORDER BY name_en', [hospital]);
-    const appointmentsResult = await pool.query('SELECT * FROM appointments WHERE hospital_slug = $1 ORDER BY date DESC, time DESC', [hospital]);
-    res.render('hospital/appointments', { user: req.session.user, hospital, appointments: appointmentsResult.rows, doctors: doctorsResult.rows, filters: req.query, lang: 'en' });
+    const appointmentsResult = await pool.query(query, params);
+    
+    res.render('hospital/appointments', { 
+        user: req.session.user, 
+        hospital, 
+        appointments: appointmentsResult.rows, 
+        doctors: doctorsResult.rows, 
+        filters: req.query,
+        selectedDate: date || '',
+        selectedDoctor: doctorId || '',
+        selectedStatus: status || 'all',
+        lang: 'en' 
+    });
 });
 
 app.get('/:hospital/admin/doctors', async (req, res) => {
