@@ -393,6 +393,26 @@ app.get('/:hospital/admin/appointments', async (req, res) => {
     });
 });
 
+function formatAvailability(workingHours) {
+    if (!workingHours || !workingHours.days || workingHours.days.length === 0) return null;
+    
+    const dayMap = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
+    const days = workingHours.days.sort((a, b) => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(a) - ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].indexOf(b));
+    const dayStr = days.length === 7 ? 'Every day' : days.map(d => dayMap[d]).join('-');
+    
+    let timeStr = '';
+    if (workingHours.startTime && workingHours.endTime) {
+        const formatTime = (t) => {
+            const [h, m] = t.split(':');
+            const hour = parseInt(h);
+            return (hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour)) + ':' + m + (hour >= 12 ? ' PM' : ' AM');
+        };
+        timeStr = formatTime(workingHours.startTime) + ' - ' + formatTime(workingHours.endTime);
+    }
+    
+    return timeStr ? dayStr + ': ' + timeStr : dayStr;
+}
+
 app.get('/:hospital/admin/doctors', async (req, res) => {
     if (!req.session.user || !req.session.user.hospital || req.session.user.role !== 'admin') {
         return res.redirect(`/${req.params.hospital}/login`);
@@ -400,7 +420,13 @@ app.get('/:hospital/admin/doctors', async (req, res) => {
     const { hospital } = req.params;
     const pool = getPool();
     const doctorsResult = await pool.query('SELECT * FROM doctors WHERE hospital_slug = $1 ORDER BY name_en', [hospital]);
-    res.render('hospital/doctors', { user: req.session.user, hospital, doctors: doctorsResult.rows, lang: 'en' });
+    
+    const doctors = doctorsResult.rows.map(doc => ({
+        ...doc,
+        availability_display: formatAvailability(doc.working_hours)
+    }));
+    
+    res.render('hospital/doctors', { user: req.session.user, hospital, doctors, lang: 'en' });
 });
 
 app.post('/:hospital/admin/doctors/add', async (req, res) => {

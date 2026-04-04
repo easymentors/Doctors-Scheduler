@@ -59,7 +59,7 @@
                         <p class="text-sm text-gray-500 mt-2">📞 <%= doctor.phone || 'N/A' %></p>
                         <p class="text-sm text-gray-500">✉️ <%= doctor.email || 'N/A' %></p>
                         <% if (doctor.working_hours && doctor.working_hours.days && doctor.working_hours.days.length > 0) { %>
-                        <p class="text-sm text-teal-600 mt-2">🕐 <%= formatDays(doctor.working_hours.days) %>: <%= formatTime(doctor.working_hours.startTime) %> - <%= formatTime(doctor.working_hours.endTime) %></p>
+                        <p class="text-sm text-teal-600 mt-2">🕐 <%= doctor.availability_display %></p>
                         <% } else { %>
                         <p class="text-sm text-gray-400 mt-2">🕐 Not set</p>
                         <% } %>
