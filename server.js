@@ -451,13 +451,20 @@ app.post('/:hospital/admin/doctors/add', async (req, res) => {
     const doctorId = 'DOC-' + Date.now();
     const workingHours = workingDays ? JSON.stringify({ days: workingDays, startTime, endTime }) : null;
     
-    await pool.query(
-        `INSERT INTO doctors (id, name_en, specialization_en, phone, email, username, password, working_hours, hospital_slug)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [doctorId, name_en, specialization_en, phone, email, username || email, password || '12345678', workingHours, hospital]
-    );
-    
-    res.redirect(`/${hospital}/admin/doctors`);
+    try {
+        await pool.query(
+            `INSERT INTO doctors (id, name_en, specialization_en, phone, email, username, password, working_hours, hospital_slug)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [doctorId, name_en, specialization_en, phone, email, username || email, password || '12345678', workingHours, hospital]
+        );
+        
+        req.session.save((err) => {
+            res.redirect(`/${hospital}/admin/doctors`);
+        });
+    } catch (err) {
+        console.error('Error adding doctor:', err);
+        res.redirect(`/${hospital}/admin/doctors`);
+    }
 });
 
 app.post('/:hospital/admin/doctors/:id/update', async (req, res) => {
@@ -470,13 +477,20 @@ app.post('/:hospital/admin/doctors/:id/update', async (req, res) => {
     
     const workingHours = workingDays ? JSON.stringify({ days: workingDays, startTime, endTime }) : null;
     
-    await pool.query(
-        `UPDATE doctors SET name_en = $1, specialization_en = $2, phone = $3, email = $4, username = $5, password = $6, working_hours = $7
-         WHERE id = $8 AND hospital_slug = $9`,
-        [name_en, specialization_en, phone, email, username || email, password || '12345678', workingHours, id, hospital]
-    );
-    
-    res.redirect(`/${hospital}/admin/doctors`);
+    try {
+        await pool.query(
+            `UPDATE doctors SET name_en = $1, specialization_en = $2, phone = $3, email = $4, username = $5, password = $6, working_hours = $7
+             WHERE id = $8 AND hospital_slug = $9`,
+            [name_en, specialization_en, phone, email, username || email, password || '12345678', workingHours, id, hospital]
+        );
+        
+        req.session.save((err) => {
+            res.redirect(`/${hospital}/admin/doctors`);
+        });
+    } catch (err) {
+        console.error('Error updating doctor:', err);
+        res.redirect(`/${hospital}/admin/doctors`);
+    }
 });
 
 app.post('/:hospital/admin/doctors/:id/delete', async (req, res) => {
@@ -486,9 +500,16 @@ app.post('/:hospital/admin/doctors/:id/delete', async (req, res) => {
     const { hospital, id } = req.params;
     const pool = getPool();
     
-    await pool.query('DELETE FROM doctors WHERE id = $1 AND hospital_slug = $2', [id, hospital]);
-    
-    res.redirect(`/${hospital}/admin/doctors`);
+    try {
+        await pool.query('DELETE FROM doctors WHERE id = $1 AND hospital_slug = $2', [id, hospital]);
+        
+        req.session.save((err) => {
+            res.redirect(`/${hospital}/admin/doctors`);
+        });
+    } catch (err) {
+        console.error('Error deleting doctor:', err);
+        res.redirect(`/${hospital}/admin/doctors`);
+    }
 });
 
 app.post('/:hospital/admin/appointments/:id/update', async (req, res) => {
@@ -502,13 +523,20 @@ app.post('/:hospital/admin/appointments/:id/update', async (req, res) => {
     const doctorResult = await pool.query('SELECT name_en, specialization_en FROM doctors WHERE id = $1 AND hospital_slug = $2', [doctorId, hospital]);
     const doctor = doctorResult.rows[0];
     
-    await pool.query(
-        `UPDATE appointments SET doctor_id = $1, doctor_name = $2, patient_name = $3, patient_phone = $4, date = $5, time = $6, reason = $7
-         WHERE id = $8 AND hospital_slug = $9`,
-        [doctorId, `${doctor.name_en} (${doctor.specialization_en})`, patientName, patientPhone, date, time, reason, id, hospital]
-    );
-    
-    res.redirect(`/${hospital}/admin/appointments`);
+    try {
+        await pool.query(
+            `UPDATE appointments SET doctor_id = $1, doctor_name = $2, patient_name = $3, patient_phone = $4, date = $5, time = $6, reason = $7
+             WHERE id = $8 AND hospital_slug = $9`,
+            [doctorId, `${doctor.name_en} (${doctor.specialization_en})`, patientName, patientPhone, date, time, reason, id, hospital]
+        );
+        
+        req.session.save((err) => {
+            res.redirect(`/${hospital}/admin/appointments`);
+        });
+    } catch (err) {
+        console.error('Error updating appointment:', err);
+        res.redirect(`/${hospital}/admin/appointments`);
+    }
 });
 
 app.post('/:hospital/admin/appointments/:id/status', async (req, res) => {
@@ -519,9 +547,16 @@ app.post('/:hospital/admin/appointments/:id/status', async (req, res) => {
     const { status } = req.body;
     const pool = getPool();
     
-    await pool.query('UPDATE appointments SET status = $1 WHERE id = $2 AND hospital_slug = $3', [status, id, hospital]);
-    
-    res.redirect(`/${hospital}/admin/appointments`);
+    try {
+        await pool.query('UPDATE appointments SET status = $1 WHERE id = $2 AND hospital_slug = $3', [status, id, hospital]);
+        
+        req.session.save((err) => {
+            res.redirect(`/${hospital}/admin/appointments`);
+        });
+    } catch (err) {
+        console.error('Error updating appointment status:', err);
+        res.redirect(`/${hospital}/admin/appointments`);
+    }
 });
 
 app.post('/:hospital/admin/appointments/:id/delete', async (req, res) => {
@@ -531,9 +566,16 @@ app.post('/:hospital/admin/appointments/:id/delete', async (req, res) => {
     const { hospital, id } = req.params;
     const pool = getPool();
     
-    await pool.query('DELETE FROM appointments WHERE id = $1 AND hospital_slug = $2', [id, hospital]);
-    
-    res.redirect(`/${hospital}/admin/appointments`);
+    try {
+        await pool.query('DELETE FROM appointments WHERE id = $1 AND hospital_slug = $2', [id, hospital]);
+        
+        req.session.save((err) => {
+            res.redirect(`/${hospital}/admin/appointments`);
+        });
+    } catch (err) {
+        console.error('Error deleting appointment:', err);
+        res.redirect(`/${hospital}/admin/appointments`);
+    }
 });
 
 app.get('/:hospital/admin/book', async (req, res) => {
@@ -557,13 +599,20 @@ app.post('/:hospital/admin/appointments/book', async (req, res) => {
     const doctorResult = await pool.query('SELECT name_en, specialization_en FROM doctors WHERE id = $1 AND hospital_slug = $2', [doctorId, hospital]);
     const doctor = doctorResult.rows[0];
     
-    await pool.query(
-        `INSERT INTO appointments (doctor_id, doctor_name, patient_name, patient_phone, date, time, reason, status, hospital_slug)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'scheduled', $8)`,
-        [doctorId, `${doctor.name_en} (${doctor.specialization_en})`, patientName, patientPhone, date, time, reason, hospital]
-    );
-    
-    res.redirect(`/${hospital}/admin/appointments`);
+    try {
+        await pool.query(
+            `INSERT INTO appointments (doctor_id, doctor_name, patient_name, patient_phone, date, time, reason, status, hospital_slug)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'scheduled', $8)`,
+            [doctorId, `${doctor.name_en} (${doctor.specialization_en})`, patientName, patientPhone, date, time, reason, hospital]
+        );
+        
+        req.session.save((err) => {
+            res.redirect(`/${hospital}/admin/appointments`);
+        });
+    } catch (err) {
+        console.error('Error booking appointment:', err);
+        res.redirect(`/${hospital}/admin/appointments`);
+    }
 });
 
 app.get('/:hospital/admin/settings', async (req, res) => {
@@ -586,11 +635,18 @@ app.post('/:hospital/admin/settings', async (req, res) => {
     const { hospital_name, hospital_phone, hospital_email } = req.body;
     const pool = getPool();
     
-    await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_name', hospital_name, hospital]);
-    await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_phone', hospital_phone, hospital]);
-    await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_email', hospital_email, hospital]);
-    
-    res.redirect(`/${hospital}/admin/settings`);
+    try {
+        await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_name', hospital_name, hospital]);
+        await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_phone', hospital_phone, hospital]);
+        await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_email', hospital_email, hospital]);
+        
+        req.session.save((err) => {
+            res.redirect(`/${hospital}/admin/settings`);
+        });
+    } catch (err) {
+        console.error('Error saving settings:', err);
+        res.redirect(`/${hospital}/admin/settings`);
+    }
 });
 
 // ============================================
