@@ -130,6 +130,7 @@
                         <table class="w-full">
                             <thead>
                                 <tr class="text-left text-gray-500 text-sm">
+                                    <th class="pb-3">Date</th>
                                     <th class="pb-3">Time</th>
                                     <th class="pb-3">Doctor</th>
                                     <th class="pb-3">Patient</th>
@@ -141,6 +142,7 @@
                             <tbody class="divide-y">
                                 <% todayAppointments.forEach(function(apt) { %>
                                 <tr>
+                                    <td class="py-3"><%= apt.date.split('-').reverse().join('/') %></td>
                                     <td class="py-3 font-medium"><%= apt.time %></td>
                                     <td class="py-3"><%= apt.doctor_name %></td>
                                     <td class="py-3"><%= apt.patient_name %></td>

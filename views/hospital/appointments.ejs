@@ -43,8 +43,8 @@
             <!-- Filters -->
             <form method="GET" action="/<%= hospital %>/admin/appointments" class="flex flex-wrap gap-4 items-end">
                 <div>
-                    <label class="block text-gray-600 text-sm mb-1">Date (DD/MM/YYYY)</label>
-                    <input type="date" name="date" value="<%= selectedDate %>" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm" placeholder="DD/MM/YYYY">
+                    <label class="block text-gray-600 text-sm mb-1">Date</label>
+                    <input type="date" name="date" value="<%= selectedDate %>" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
                 </div>
                 <div>
                     <label class="block text-gray-600 text-sm mb-1">Doctor</label>
@@ -74,7 +74,7 @@
                 <%= appointments.length %> appointment<%= appointments.length !== 1 ? 's' : '' %> found
                 <% if (selectedDate || selectedDoctor || (selectedStatus && selectedStatus !== 'all')) { %>
                     <span class="ml-2">| Filters: 
-                        <% if (selectedDate) { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1">Date: <%= selectedDate %></span><% } %>
+                        <% if (selectedDate) { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1">Date: <%= selectedDate.split('-').reverse().join('/') %></span><% } %>
                         <% if (selectedDoctor) { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1">Doctor</span><% } %>
                         <% if (selectedStatus && selectedStatus !== 'all') { %><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs ml-1"><%= selectedStatus %></span><% } %>
                     </span>
@@ -170,7 +170,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-gray-700 font-medium mb-2">Date (DD/MM/YYYY)</label>
+                        <label class="block text-gray-700 font-medium mb-2">Date</label>
                         <input type="date" name="date" id="editDate" required class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
                     </div>
                     <div>
