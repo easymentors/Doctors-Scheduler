@@ -307,20 +307,30 @@ app.get('/super-admin/dashboard', async (req, res) => {
     }
 });
 
-app.post('/super-admin/hospitals/add', upload.single('logo'), async (req, res) => {
+app.post('/super-admin/hospitals/add', (req, res) => {
     if (!req.session.superAdmin) {
         return res.redirect('/super-admin/login');
     }
-    const { name, slug, adminUsername, adminPassword } = req.body;
-    const logoFilename = req.file ? req.file.filename : null;
-    try {
-        await createHospital(name, slug, adminUsername, adminPassword, logoFilename);
-        res.redirect('/super-admin/dashboard');
-    } catch (err) {
-        console.error('Error creating hospital:', err);
-        const hospitals = await getAllHospitals();
-        res.render('super-admin/dashboard', { hospitals, user: req.session.superAdmin, error: err.message });
-    }
+    
+    upload.single('logo')(req, res, async function(err) {
+        if (err) {
+            console.error('File upload error:', err.message);
+            const hospitals = await getAllHospitals();
+            return res.render('super-admin/dashboard', { hospitals, user: req.session.superAdmin, error: 'File upload error: ' + err.message });
+        }
+        
+        const { name, slug, adminUsername, adminPassword } = req.body;
+        const logoFilename = req.file ? req.file.filename : null;
+        
+        try {
+            await createHospital(name, slug, adminUsername, adminPassword, logoFilename);
+            res.redirect('/super-admin/dashboard');
+        } catch (err) {
+            console.error('Error creating hospital:', err.message);
+            const hospitals = await getAllHospitals();
+            res.render('super-admin/dashboard', { hospitals, user: req.session.superAdmin, error: err.message });
+        }
+    });
 });
 
 app.get('/super-admin/logout', (req, res) => {
