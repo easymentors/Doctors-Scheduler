@@ -17,6 +17,42 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ============================================
+// FILE UPLOAD - Multer Configuration
+// ============================================
+
+const uploadDir = path.join(__dirname, 'public', 'uploads', 'logos');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `hospital-${Date.now()}${ext}`);
+    }
+});
+
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|svg/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only JPG, PNG, and SVG files are allowed'));
+    }
+};
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+    fileFilter: fileFilter
+});
+
+// ============================================
 // DATABASE - Single PostgreSQL Database
 // ============================================
 
@@ -48,11 +84,15 @@ function initDatabase() {
             slug VARCHAR(100) UNIQUE NOT NULL,
             admin_username VARCHAR(100) NOT NULL,
             admin_password VARCHAR(255) NOT NULL,
+            logo VARCHAR(255),
             active BOOLEAN DEFAULT true,
             created_at TIMESTAMP DEFAULT NOW()
         )
     `).then(() => {
         console.log('Hospitals table ready');
+        return pool.query(`ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS logo VARCHAR(255)`);
+    }).then(() => {
+        console.log('Logo column ensured');
         
         // Create doctors table with hospital_slug
         pool.query(`
@@ -152,19 +192,24 @@ async function getHospitalBySlug(slug) {
     return result.rows[0];
 }
 
+async function getHospitalLogo(slug) {
+    const hospital = await getHospitalBySlug(slug);
+    return hospital?.logo || null;
+}
+
 async function getAllHospitals() {
     const pool = getPool();
-    const result = await pool.query('SELECT id, name, slug, created_at FROM hospitals ORDER BY created_at DESC');
+    const result = await pool.query('SELECT id, name, slug, logo, created_at FROM hospitals ORDER BY created_at DESC');
     return result.rows;
 }
 
-async function createHospital(name, slug, adminUsername, adminPassword) {
+async function createHospital(name, slug, adminUsername, adminPassword, logoFilename = null) {
     const pool = getPool();
     const result = await pool.query(
-        `INSERT INTO hospitals (name, slug, admin_username, admin_password, active, created_at)
-         VALUES ($1, $2, $3, $4, true, NOW())
+        `INSERT INTO hospitals (name, slug, admin_username, admin_password, logo, active, created_at)
+         VALUES ($1, $2, $3, $4, $5, true, NOW())
          RETURNING id, name, slug`,
-        [name, slug, adminUsername, adminPassword]
+        [name, slug, adminUsername, adminPassword, logoFilename]
     );
     
     const hospital = result.rows[0];
@@ -262,13 +307,14 @@ app.get('/super-admin/dashboard', async (req, res) => {
     }
 });
 
-app.post('/super-admin/hospitals/add', async (req, res) => {
+app.post('/super-admin/hospitals/add', upload.single('logo'), async (req, res) => {
     if (!req.session.superAdmin) {
         return res.redirect('/super-admin/login');
     }
     const { name, slug, adminUsername, adminPassword } = req.body;
+    const logoFilename = req.file ? req.file.filename : null;
     try {
-        await createHospital(name, slug, adminUsername, adminPassword);
+        await createHospital(name, slug, adminUsername, adminPassword, logoFilename);
         res.redirect('/super-admin/dashboard');
     } catch (err) {
         console.error('Error creating hospital:', err);
@@ -296,7 +342,7 @@ app.get('/:hospital/login', async (req, res) => {
     const { hospital } = req.params;
     const hospitalData = await getHospitalBySlug(hospital);
     if (!hospitalData) return res.status(404).send('Hospital not found');
-    res.render('hospital/login', { error: null, hospital: hospitalData, hospitalSlug: hospital });
+    res.render('hospital/login', { error: null, hospital: hospitalData, hospitalLogo: hospitalData.logo, hospitalSlug: hospital });
 });
 
 app.post('/:hospital/login', async (req, res) => {
@@ -314,7 +360,7 @@ app.post('/:hospital/login', async (req, res) => {
         });
     } else {
         const hospitalInfo = await getHospitalBySlug(hospital);
-        res.render('hospital/login', { error: 'Invalid credentials', hospital: hospitalInfo, hospitalSlug: hospital });
+        res.render('hospital/login', { error: 'Invalid credentials', hospital: hospitalInfo, hospitalLogo: hospitalInfo.logo, hospitalSlug: hospital });
     }
 });
 
@@ -347,6 +393,7 @@ app.get('/:hospital/admin/dashboard', async (req, res) => {
         res.render('hospital/dashboard', {
             user: req.session.user,
             hospital,
+            hospitalLogo: await getHospitalLogo(hospital),
             todayAppointments: todayAppts,
             upcomingAppointments: upcomingAppts,
             totalAppointments: appointmentsResult.rows.length,
@@ -403,6 +450,7 @@ app.get('/:hospital/admin/appointments', async (req, res) => {
     res.render('hospital/appointments', { 
         user: req.session.user, 
         hospital, 
+        hospitalLogo: await getHospitalLogo(hospital),
         appointments: appointmentsResult.rows, 
         doctors: doctorsResult.rows, 
         filters: req.query,
@@ -447,7 +495,7 @@ app.get('/:hospital/admin/doctors', async (req, res) => {
         availability_display: formatAvailability(doc.working_hours)
     }));
     
-    res.render('hospital/doctors', { user: req.session.user, hospital, doctors, lang: 'en' });
+    res.render('hospital/doctors', { user: req.session.user, hospital, hospitalLogo: await getHospitalLogo(hospital), doctors, lang: 'en' });
 });
 
 app.post('/:hospital/admin/doctors/add', async (req, res) => {
@@ -595,7 +643,7 @@ app.get('/:hospital/admin/book', async (req, res) => {
     const { hospital } = req.params;
     const pool = getPool();
     const doctorsResult = await pool.query('SELECT * FROM doctors WHERE hospital_slug = $1 ORDER BY name_en', [hospital]);
-    res.render('hospital/book', { user: req.session.user, hospital, doctors: doctorsResult.rows, lang: 'en' });
+    res.render('hospital/book', { user: req.session.user, hospital, hospitalLogo: await getHospitalLogo(hospital), doctors: doctorsResult.rows, lang: 'en' });
 });
 
 app.post('/:hospital/admin/appointments/book', async (req, res) => {
@@ -639,7 +687,7 @@ app.get('/:hospital/admin/settings', async (req, res) => {
     const settings = {};
     settingsResult.rows.forEach(s => { settings[s.key] = s.value; });
     
-    res.render('hospital/settings', { user: req.session.user, hospital, settings, hospitalName, lang: 'en' });
+    res.render('hospital/settings', { user: req.session.user, hospital, hospitalLogo: await getHospitalLogo(hospital), settings, hospitalName, lang: 'en' });
 });
 
 app.post('/:hospital/admin/settings', async (req, res) => {
@@ -671,7 +719,7 @@ app.get('/:hospital/doctor/login', async (req, res) => {
     const { hospital } = req.params;
     const hospitalData = await getHospitalBySlug(hospital);
     if (!hospitalData) return res.status(404).send('Hospital not found');
-    res.render('hospital/doctor-login', { error: null, hospital: hospitalData, hospitalSlug: hospital });
+    res.render('hospital/doctor-login', { error: null, hospital: hospitalData, hospitalLogo: hospitalData.logo, hospitalSlug: hospital });
 });
 
 app.post('/:hospital/doctor/login', async (req, res) => {
@@ -684,15 +732,15 @@ app.post('/:hospital/doctor/login', async (req, res) => {
         [username, hospital]
     );
     
+    const hospitalData = await getHospitalBySlug(hospital);
+    
     if (result.rows.length === 0) {
-        const hospitalData = await getHospitalBySlug(hospital);
-        return res.render('hospital/doctor-login', { error: 'Invalid username or password', hospital: hospitalData, hospitalSlug: hospital });
+        return res.render('hospital/doctor-login', { error: 'Invalid username or password', hospital: hospitalData, hospitalLogo: hospitalData.logo, hospitalSlug: hospital });
     }
     
     const doctor = result.rows[0];
     if (doctor.password !== password) {
-        const hospitalData = await getHospitalBySlug(hospital);
-        return res.render('hospital/doctor-login', { error: 'Invalid username or password', hospital: hospitalData, hospitalSlug: hospital });
+        return res.render('hospital/doctor-login', { error: 'Invalid username or password', hospital: hospitalData, hospitalLogo: hospitalData.logo, hospitalSlug: hospital });
     }
     
     req.session.doctor = { 
@@ -735,6 +783,7 @@ app.get('/:hospital/doctor/dashboard', async (req, res) => {
     res.render('hospital/doctor-dashboard', {
         doctor: req.session.doctor,
         hospital,
+        hospitalLogo: await getHospitalLogo(hospital),
         todayAppointments: todayAppts,
         upcomingAppointments: upcomingAppts,
         pastAppointments: pastAppts,
