@@ -197,6 +197,11 @@ async function getHospitalLogo(slug) {
     return hospital?.logo || null;
 }
 
+async function getHospitalName(slug) {
+    const hospital = await getHospitalBySlug(slug);
+    return hospital?.name || '';
+}
+
 async function getAllHospitals() {
     const pool = getPool();
     const result = await pool.query('SELECT id, name, slug, logo, created_at FROM hospitals ORDER BY created_at DESC');
@@ -404,6 +409,7 @@ app.get('/:hospital/admin/dashboard', async (req, res) => {
             user: req.session.user,
             hospital,
             hospitalLogo: await getHospitalLogo(hospital),
+            hospitalName: await getHospitalName(hospital),
             todayAppointments: todayAppts,
             upcomingAppointments: upcomingAppts,
             totalAppointments: appointmentsResult.rows.length,
@@ -461,6 +467,7 @@ app.get('/:hospital/admin/appointments', async (req, res) => {
         user: req.session.user, 
         hospital, 
         hospitalLogo: await getHospitalLogo(hospital),
+        hospitalName: await getHospitalName(hospital),
         appointments: appointmentsResult.rows, 
         doctors: doctorsResult.rows, 
         filters: req.query,
@@ -505,7 +512,7 @@ app.get('/:hospital/admin/doctors', async (req, res) => {
         availability_display: formatAvailability(doc.working_hours)
     }));
     
-    res.render('hospital/doctors', { user: req.session.user, hospital, hospitalLogo: await getHospitalLogo(hospital), doctors, lang: 'en' });
+    res.render('hospital/doctors', { user: req.session.user, hospital, hospitalLogo: await getHospitalLogo(hospital), hospitalName: await getHospitalName(hospital), doctors, lang: 'en' });
 });
 
 app.post('/:hospital/admin/doctors/add', async (req, res) => {
@@ -653,7 +660,7 @@ app.get('/:hospital/admin/book', async (req, res) => {
     const { hospital } = req.params;
     const pool = getPool();
     const doctorsResult = await pool.query('SELECT * FROM doctors WHERE hospital_slug = $1 ORDER BY name_en', [hospital]);
-    res.render('hospital/book', { user: req.session.user, hospital, hospitalLogo: await getHospitalLogo(hospital), doctors: doctorsResult.rows, lang: 'en' });
+    res.render('hospital/book', { user: req.session.user, hospital, hospitalLogo: await getHospitalLogo(hospital), hospitalName: await getHospitalName(hospital), doctors: doctorsResult.rows, lang: 'en' });
 });
 
 app.post('/:hospital/admin/appointments/book', async (req, res) => {
@@ -794,6 +801,7 @@ app.get('/:hospital/doctor/dashboard', async (req, res) => {
         doctor: req.session.doctor,
         hospital,
         hospitalLogo: await getHospitalLogo(hospital),
+        hospitalName: await getHospitalName(hospital),
         todayAppointments: todayAppts,
         upcomingAppointments: upcomingAppts,
         pastAppointments: pastAppts,
