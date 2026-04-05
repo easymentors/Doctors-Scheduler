@@ -631,10 +631,15 @@ app.get('/:hospital/admin/settings', async (req, res) => {
     }
     const { hospital } = req.params;
     const pool = getPool();
+    
+    const hospitalResult = await pool.query('SELECT name FROM hospitals WHERE slug = $1', [hospital]);
+    const hospitalName = hospitalResult.rows[0]?.name || '';
+    
     const settingsResult = await pool.query('SELECT * FROM settings WHERE hospital_slug = $1', [hospital]);
     const settings = {};
     settingsResult.rows.forEach(s => { settings[s.key] = s.value; });
-    res.render('hospital/settings', { user: req.session.user, hospital, settings, lang: 'en' });
+    
+    res.render('hospital/settings', { user: req.session.user, hospital, settings, hospitalName, lang: 'en' });
 });
 
 app.post('/:hospital/admin/settings', async (req, res) => {
@@ -642,11 +647,10 @@ app.post('/:hospital/admin/settings', async (req, res) => {
         return res.redirect(`/${req.params.hospital}/login`);
     }
     const { hospital } = req.params;
-    const { hospital_name, hospital_phone, hospital_email } = req.body;
+    const { hospital_phone, hospital_email } = req.body;
     const pool = getPool();
     
     try {
-        await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_name', hospital_name, hospital]);
         await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_phone', hospital_phone, hospital]);
         await pool.query('INSERT INTO settings (key, value, hospital_slug) VALUES ($1, $2, $3) ON CONFLICT(key, hospital_slug) DO UPDATE SET value = $2', ['hospital_email', hospital_email, hospital]);
         
