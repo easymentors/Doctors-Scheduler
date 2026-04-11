@@ -728,6 +728,81 @@ app.post('/:hospital/admin/settings', async (req, res) => {
     }
 });
 
+app.get('/:hospital/admin/patient-history', async (req, res) => {
+    if (!req.session.user || !req.session.user.hospital || req.session.user.role !== 'admin') {
+        return res.redirect(`/${req.params.hospital}/login`);
+    }
+    const { hospital } = req.params;
+    const { dateFrom, dateTo, patientName, patientPhone, status } = req.query;
+    const pool = getPool();
+    
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    const defaultDateFrom = sevenDaysAgo.toISOString().split('T')[0];
+    const defaultDateTo = today.toISOString().split('T')[0];
+    
+    let query = 'SELECT * FROM appointments WHERE hospital_slug = $1';
+    let params = [hospital];
+    let paramIndex = 2;
+    
+    if (dateFrom) {
+        query += ` AND date >= $${paramIndex}`;
+        params.push(dateFrom);
+        paramIndex++;
+    } else {
+        query += ` AND date >= $${paramIndex}`;
+        params.push(defaultDateFrom);
+        paramIndex++;
+    }
+    
+    if (dateTo) {
+        query += ` AND date <= $${paramIndex}`;
+        params.push(dateTo);
+        paramIndex++;
+    } else {
+        query += ` AND date <= $${paramIndex}`;
+        params.push(defaultDateTo);
+        paramIndex++;
+    }
+    
+    if (patientName) {
+        query += ` AND patient_name ILIKE $${paramIndex}`;
+        params.push('%' + patientName + '%');
+        paramIndex++;
+    }
+    
+    if (patientPhone) {
+        query += ` AND patient_phone LIKE $${paramIndex}`;
+        params.push('%' + patientPhone + '%');
+        paramIndex++;
+    }
+    
+    if (status && status !== 'all') {
+        query += ` AND status = $${paramIndex}`;
+        params.push(status);
+    }
+    
+    query += ' ORDER BY patient_name ASC';
+    
+    const appointmentsResult = await pool.query(query, params);
+    
+    res.render('hospital/patient-history', {
+        user: req.session.user,
+        hospital,
+        hospitalLogo: await getHospitalLogo(hospital),
+        hospitalName: await getHospitalName(hospital),
+        appointments: appointmentsResult.rows,
+        filters: req.query,
+        selectedDateFrom: dateFrom || defaultDateFrom,
+        selectedDateTo: dateTo || defaultDateTo,
+        selectedPatientName: patientName || '',
+        selectedPatientPhone: patientPhone || '',
+        selectedStatus: status || 'all',
+        lang: 'en'
+    });
+});
+
 // ============================================
 // DOCTOR LOGIN & DASHBOARD
 // ============================================
